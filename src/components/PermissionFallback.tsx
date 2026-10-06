@@ -7,7 +7,7 @@ const COPY: Record<string, { title: string; body: string }> = {
   none: { title: "No camera found", body: "Connect a webcam, or open this page on a device that has one." },
   busy: { title: "Camera is in use", body: "Close other apps or tabs using the camera, then try again." },
   unknown: { title: "Couldn't start the camera", body: "Check your browser permissions and try again." },
-  model: { title: "Couldn't load hand tracking", body: "The tracking model didn't download. Check your connection and try again." },
+  model: { title: "Couldn't load tracking models", body: "The face and hand tracking models didn't download. Check your connection and try again." },
 };
 
 export default function PermissionFallback({ kind, onRetry }: { kind: CameraError | "model"; onRetry: () => void }) {

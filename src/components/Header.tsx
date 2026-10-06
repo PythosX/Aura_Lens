@@ -1,11 +1,30 @@
+import type { ReactNode } from "react";
 import { motion } from "framer-motion";
-import { Hand, Sparkles } from "lucide-react";
+import { Hand, ScanFace, Sparkles } from "lucide-react";
 
-interface Props { active: boolean; handCount: number; }
+interface Props { active: boolean; handCount: number; faceFound: boolean; }
 
-export default function Header({ active, handCount }: Props) {
-  const label = !active ? "Webcam Inactive" : `Hand Detected [${handCount}/2]`;
-  const color = !active ? "#6b7280" : handCount === 2 ? "#34d399" : handCount === 1 ? "#fbbf24" : "#06B6D4";
+function Pill({ color, icon, children }: { color: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <span
+      className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold"
+      style={{ borderColor: color + "88", color, background: color + "14" }}
+      role="status" aria-live="polite"
+    >
+      <span className="relative flex h-2.5 w-2.5">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" style={{ background: color }} />
+        <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+      </span>
+      {icon} {children}
+    </span>
+  );
+}
+
+export default function Header({ active, handCount, faceFound }: Props) {
+  const handLabel = !active ? "Webcam Inactive" : `Hands [${handCount}/2]`;
+  const handColor = !active ? "#6b7280" : handCount === 2 ? "#34d399" : handCount === 1 ? "#fbbf24" : "#06B6D4";
+  const faceColor = !active ? "#6b7280" : faceFound ? "#34d399" : "#fbbf24";
+
   return (
     <motion.header
       initial={{ y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
@@ -16,16 +35,9 @@ export default function Header({ active, handCount }: Props) {
         <Sparkles size={18} className="text-violet-neon" />
         <span>ANIME<span className="text-cyan-neon">PORTAL</span></span>
       </div>
-      <div
-        className="flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold"
-        style={{ borderColor: color + "88", color, background: color + "14" }}
-        role="status" aria-live="polite"
-      >
-        <span className="relative flex h-2.5 w-2.5">
-          {active && <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" style={{ background: color }} />}
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full" style={{ background: color }} />
-        </span>
-        <Hand size={14} /> {label}
+      <div className="flex items-center gap-2">
+        {active && <Pill color={faceColor} icon={<ScanFace size={14} />}>{faceFound ? "Face Locked" : "Searching Face"}</Pill>}
+        <Pill color={handColor} icon={<Hand size={14} />}>{handLabel}</Pill>
       </div>
     </motion.header>
   );

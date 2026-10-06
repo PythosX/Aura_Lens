@@ -1,23 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react";
 import Header from "./components/Header";
 import LoadingScreen from "./components/LoadingScreen";
-import HandPortal from "./components/HandPortal";
+import FaceCanvasOverlay from "./components/FaceCanvasOverlay";
 import ControlsDrawer from "./components/ControlsDrawer";
+import ZoneHud from "./components/ZoneHud";
 import PermissionFallback from "./components/PermissionFallback";
 import PythosxBadge from "./components/PythosxBadge";
 import { TrackerEngine, type CameraError } from "./lib/tracker";
+import { useMultiRegionTracker } from "./hooks/useMultiRegionTracker";
+import { ZONE_IDS } from "./lib/regions";
 import { BUILTIN_PRESETS, loadImage } from "./lib/presets";
 import { sfx } from "./lib/audio";
-import { DEFAULT_SETTINGS, type Preset, type Settings } from "./lib/types";
+import { DEFAULT_SETTINGS, type Preset, type Settings, type ZoneId } from "./lib/types";
 
 /** Each stage runs alone; the next one starts only after the UI has painted. */
 const STAGES = [
   "Preparing interface",
-  "Decoding anime portals",
+  "Decoding anime strips",
   "Loading vision runtime",
-  "Warming up hand model",
+  "Warming up face & hand models",
   "Starting webcam",
   "Syncing tracking",
 ];
@@ -32,7 +35,8 @@ export default function App() {
   const [presets, setPresets] = useState<Preset[]>([]);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [drawer, setDrawer] = useState(false);
-  const [handCount, setHandCount] = useState(0);
+  const [cameras, setCameras] = useState<MediaDeviceInfo[]>([]);
+  const [camId, setCamId] = useState("");
 
   const engine = useMemo(() => new TrackerEngine(), []);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -42,6 +46,8 @@ export default function App() {
   const booting = useRef(false);
   const runtimeLoaded = useRef(false);
   const modelLoaded = useRef(false);
+
+  const region = useMultiRegionTracker(engine, ready);
 
   const set = useCallback(<K extends keyof Settings>(k: K, v: Settings[K]) => setSettings((s) => ({ ...s, [k]: v })), []);
 
@@ -63,14 +69,14 @@ export default function App() {
         setPresets(BUILTIN_PRESETS);
       }
 
-      // 2 — MediaPipe runtime
+      // 2 — MediaPipe vision runtime (wasm fileset)
       setStage(2); await nextPaint();
       if (!runtimeLoaded.current) {
         try { await engine.loadRuntime(); runtimeLoaded.current = true; }
         catch { setError("model"); booting.current = false; return; }
       }
 
-      // 3 — model weights
+      // 3 — face landmarker + hand landmarker weights
       setStage(3); await nextPaint();
       if (!modelLoaded.current) {
         try { await engine.initModel(); modelLoaded.current = true; }
@@ -85,6 +91,8 @@ export default function App() {
       // 5 — detection loop
       setStage(5); await nextPaint();
       engine.startDetection();
+      setCamId(engine.deviceId);
+      engine.listCameras().then(setCameras);
       await nextPaint(350);
       setStage(STAGES.length);
       setReady(true);
@@ -95,28 +103,34 @@ export default function App() {
 
   useEffect(() => { boot(); return () => engine.stop(); }, [boot, engine]);
 
-  const upload = (file: File) => {
+  const switchCam = async (id: string) => {
+    if (!id || id === engine.deviceId) return;
+    try { await engine.startCamera(videoRef.current!, id); setCamId(engine.deviceId); }
+    catch { /* keep the current camera */ }
+  };
+
+  const upload = (file: File, zone: ZoneId) => {
     const url = URL.createObjectURL(file);
     loadImage(url).then((img) => {
       const id = "custom-" + Date.now();
       imagesRef.current.set(id, img);
       setPresets((p) => [...p, { id, name: file.name.replace(/\.[^.]+$/, "").slice(0, 14) || "Custom", src: url, accent: "#06B6D4" }]);
-      set("presetId", id);
+      set("zones", { ...settingsRef.current.zones, [zone]: id });
     });
   };
 
-  const cycle = (dir: 1 | -1) => {
-    if (!presets.length) return;
-    const i = presets.findIndex((p) => p.id === settings.presetId);
-    set("presetId", presets[(i + dir + presets.length) % presets.length].id);
-    if (settings.audio) sfx.switch();
-  };
-
-  const current = presets.find((p) => p.id === settings.presetId);
+  const anyZone = ZONE_IDS.some((z) => region.zones[z].active);
+  const hint = !region.faceFound
+    ? "Position your face in the frame"
+    : anyZone
+      ? null
+      : region.handCount === 0
+        ? "Cover a face zone with your hands — eyes, mouth or forehead"
+        : "Keep covering to lock the overlay — both hands = full face";
 
   return (
     <div className="relative flex h-full flex-col items-center justify-center bg-ink bg-grid px-3">
-      <Header active={ready} handCount={handCount} />
+      <Header active={ready} handCount={region.handCount} faceFound={region.faceFound} />
 
       {/* Video element stays mounted (hidden) so the camera can start during loading */}
       <video ref={videoRef} className="pointer-events-none absolute h-px w-px opacity-0" playsInline muted />
@@ -131,23 +145,35 @@ export default function App() {
             className="relative aspect-video max-h-full w-full overflow-hidden rounded-2xl border border-white/10 bg-black"
             style={{ boxShadow: `0 0 60px ${settings.neon}33, 0 0 0 1px ${settings.neon}22` }}
           >
-            {ready && <HandPortal engine={engine} settingsRef={settingsRef} imagesRef={imagesRef} onHandCount={setHandCount} />}
-
-            {ready && handCount < 2 && (
-              <motion.p
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                className="glass absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full px-4 py-1.5 text-base text-white/85"
-              >
-                {handCount === 0 ? "Raise both hands to open the portal" : "Show your second hand"}
-              </motion.p>
+            {ready && (
+              <FaceCanvasOverlay
+                engine={engine}
+                settingsRef={settingsRef}
+                imagesRef={imagesRef}
+                presets={presets}
+              />
             )}
 
-            {ready && current && (
-              <div className="glass absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-1 rounded-full px-1.5 py-1">
-                <button onClick={() => cycle(-1)} aria-label="Previous character" className="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"><ChevronLeft size={18} /></button>
-                <span className="min-w-20 text-center text-sm font-semibold text-white">{current.name}</span>
-                <button onClick={() => cycle(1)} aria-label="Next character" className="rounded-full p-1 text-white/70 hover:bg-white/10 hover:text-white"><ChevronRight size={18} /></button>
-              </div>
+            {ready && (
+              <ZoneHud
+                zones={region.zones}
+                faceFound={region.faceFound}
+                handCount={region.handCount}
+                cameras={cameras}
+                cameraId={camId}
+                onCamera={switchCam}
+                debug={settings.debug}
+                onDebug={() => set("debug", !settings.debug)}
+              />
+            )}
+
+            {ready && hint && (
+              <motion.p
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="glass absolute bottom-4 left-1/2 max-w-[70%] -translate-x-1/2 rounded-full px-4 py-1.5 text-center text-base text-white/85"
+              >
+                {hint}
+              </motion.p>
             )}
           </motion.div>
         )}
