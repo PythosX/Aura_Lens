@@ -1,7 +1,8 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Upload, X } from "lucide-react";
-import type { Preset, Settings } from "../lib/types";
+import type { Preset, Settings, ZoneId } from "../lib/types";
+import { ZONE_IDS, ZONE_LABEL } from "../lib/regions";
 
 interface Props {
   open: boolean;
@@ -9,7 +10,7 @@ interface Props {
   presets: Preset[];
   settings: Settings;
   set: <K extends keyof Settings>(k: K, v: Settings[K]) => void;
-  onUpload: (file: File) => void;
+  onUpload: (file: File, zone: ZoneId) => void;
 }
 
 const SWATCHES = ["#06B6D4", "#8B5CF6", "#EC4899", "#34d399", "#fbbf24"];
@@ -39,6 +40,11 @@ function Slider({ label, value, min, max, step = 1, onChange }: { label: string;
 
 export default function ControlsDrawer({ open, onClose, presets, settings, set, onUpload }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const [zone, setZone] = useState<ZoneId>("eyes");
+
+  const assign = (presetId: string) => set("zones", { ...settings.zones, [zone]: presetId });
+  const assignedName = presets.find((p) => p.id === settings.zones[zone])?.name ?? "—";
+
   return (
     <AnimatePresence>
       {open && (
@@ -53,18 +59,39 @@ export default function ControlsDrawer({ open, onClose, presets, settings, set, 
             <button onClick={onClose} aria-label="Close controls" className="rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white"><X size={18} /></button>
           </div>
 
-          <h3 className="mb-2 text-sm font-semibold text-white/50">Characters</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {presets.map((p) => {
-              const on = p.id === settings.presetId;
+          {/* ---- Anime asset selector: one asset per facial region ---- */}
+          <h3 className="mb-2 text-sm font-semibold text-white/50">Face region</h3>
+          <div className="mb-2 grid grid-cols-2 gap-1.5">
+            {ZONE_IDS.map((z) => {
+              const on = z === zone;
+              const preset = presets.find((p) => p.id === settings.zones[z]);
               return (
                 <button
-                  key={p.id} onClick={() => set("presetId", p.id)}
+                  key={z} onClick={() => setZone(z)}
+                  className={`rounded-xl border px-2 py-1.5 text-left transition ${on ? "border-cyan-neon bg-cyan-neon/10 shadow-[0_0_16px_#06B6D455]" : "border-white/10 bg-black/25 hover:border-white/25"}`}
+                >
+                  <span className={`block text-xs font-bold ${on ? "text-cyan-neon" : "text-white/75"}`}>{ZONE_LABEL[z]}</span>
+                  <span className="block truncate text-xs text-white/45">{preset?.name ?? "—"}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p className="mb-3 text-xs text-white/45">
+            Overlay for <b className="text-white/75">{ZONE_LABEL[zone]}</b>: <b style={{ color: presets.find((p) => p.id === settings.zones[zone])?.accent }}>{assignedName}</b>. Pick an asset below or upload your own.
+          </p>
+
+          <div className="grid grid-cols-2 gap-2">
+            {presets.map((p) => {
+              const on = p.id === settings.zones[zone];
+              return (
+                <button
+                  key={p.id} onClick={() => assign(p.id)}
                   className="group relative overflow-hidden rounded-xl border text-left transition hover:scale-[1.03]"
                   style={{ borderColor: on ? p.accent : "rgba(255,255,255,.1)", boxShadow: on ? `0 0 18px ${p.accent}88` : "none" }}
                 >
                   <img src={p.src} alt="" className="aspect-[3/2] w-full object-cover" draggable={false} />
                   <span className="absolute inset-x-0 bottom-0 bg-black/55 px-2 py-1 text-sm font-semibold text-white">{p.name}</span>
+                  {on && <span className="absolute right-1 top-1 rounded-full px-1.5 text-[10px] font-black text-black" style={{ background: p.accent }}>IN USE</span>}
                 </button>
               );
             })}
@@ -74,7 +101,7 @@ export default function ControlsDrawer({ open, onClose, presets, settings, set, 
             >
               <span className="flex flex-col items-center gap-1 text-sm"><Upload size={18} /> Upload image</span>
             </button>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); e.currentTarget.value = ""; }} />
+            <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f, zone); e.currentTarget.value = ""; }} />
           </div>
 
           <h3 className="mb-1 mt-6 text-sm font-semibold text-white/50">Neon border</h3>
@@ -93,10 +120,10 @@ export default function ControlsDrawer({ open, onClose, presets, settings, set, 
           <Toggle label="Energy particles" value={settings.particles} onChange={(v) => set("particles", v)} />
           <Toggle label="Audio effects" value={settings.audio} onChange={(v) => set("audio", v)} />
           <Toggle label="FPS counter" value={settings.showFps} onChange={(v) => set("showFps", v)} />
-          <Toggle label="Debug landmarks" value={settings.debug} onChange={(v) => set("debug", v)} />
+          <Toggle label="Debug wireframe" value={settings.debug} onChange={(v) => set("debug", v)} />
 
           <p className="mt-6 text-sm leading-snug text-white/40">
-            Make an L-shape with each hand and frame the space between them. Index fingers and thumbs become the four corners.
+            Cover a facial zone with your hands — eyes, mouth, forehead, or both hands around the whole face — and that region&apos;s anime strip appears.
           </p>
         </motion.aside>
       )}

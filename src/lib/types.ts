@@ -1,7 +1,11 @@
 export type Pt = { x: number; y: number };
 
+/** A facial region a hand can cover, each with its own anime overlay. */
+export type ZoneId = "forehead" | "eyes" | "mouth" | "full";
+
 export interface Settings {
-  presetId: string;
+  /** Preset id assigned to each facial zone. */
+  zones: Record<ZoneId, string>;
   neon: string;
   glow: number;      // shadow blur
   width: number;     // border width
@@ -20,7 +24,7 @@ export interface Preset {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  presetId: "gojo",
+  zones: { forehead: "naruto", eyes: "gojo", mouth: "sukuna", full: "neon" },
   neon: "#06B6D4",
   glow: 24,
   width: 4,
