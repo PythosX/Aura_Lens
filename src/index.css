@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: #0D0D11;
+  color: #e7e7ee;
+  font-family: "Rajdhani", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.bg-grid {
+  background-image:
+    radial-gradient(60rem 40rem at 15% -10%, rgba(139,92,246,.22), transparent 60%),
+    radial-gradient(50rem 36rem at 95% 10%, rgba(6,182,212,.16), transparent 60%),
+    radial-gradient(50rem 40rem at 50% 120%, rgba(236,72,153,.18), transparent 60%),
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+  background-size: auto, auto, auto, 36px 36px, 36px 36px;
+}
+
+.glass {
+  background: rgba(20, 20, 28, .55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255,255,255,.08);
+}
+
+/* ---------- Pythosx badge ---------- */
+@keyframes hue { to { filter: hue-rotate(360deg); } }
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(6,182,212,.55), 0 0 18px rgba(139,92,246,.45); }
+  50% { box-shadow: 0 0 0 6px rgba(139,92,246,0), 0 0 28px rgba(6,182,212,.6); }
+}
+@keyframes sweep { from { transform: translateX(-130%) skewX(-20deg); } to { transform: translateX(260%) skewX(-20deg); } }
+@keyframes glitch {
+  0% { transform: translate(0); clip-path: inset(0); }
+  20% { transform: translate(-3px, 1px); clip-path: inset(10% 0 55% 0); filter: hue-rotate(90deg); }
+  40% { transform: translate(3px, -1px); clip-path: inset(55% 0 10% 0); }
+  60% { transform: translate(-2px, 2px); clip-path: inset(25% 0 30% 0); filter: hue-rotate(-90deg); }
+  80% { transform: translate(2px, 0); clip-path: inset(0); }
+  100% { transform: translate(0); clip-path: inset(0); filter: none; }
+}
+.pyth-badge { position: relative; overflow: hidden; border-radius: 999px; }
+.pyth-badge::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: linear-gradient(120deg, #06B6D4, #8B5CF6, #EC4899);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude; opacity: .55; transition: opacity .3s;
+}
+.pyth-badge:hover::before { opacity: 1; animation: hue 3s linear infinite; }
+.pyth-badge:hover { animation: pulse-ring 1.6s ease-in-out infinite; }
+.pyth-badge .beam {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 40%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent);
+  transform: translateX(-130%) skewX(-20deg);
+}
+.pyth-badge:hover .beam { animation: sweep 1.1s ease-in-out infinite; }
+.pyth-badge.glitching { animation: glitch .45s steps(2, end) 1; }
+.grad-text {
+  background: linear-gradient(90deg, #06B6D4, #8B5CF6, #EC4899, #06B6D4);
+  background-size: 200% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 0 14px rgba(139,92,246,.55);
+}
+.pyth-badge:hover .grad-text { animation: gradmove 2s linear infinite; }
+@keyframes gradmove { to { background-position: 200% 0; } }
+
+input[type="range"] { accent-color: #8B5CF6; }
+.thin-scroll::-webkit-scrollbar { height: 6px; width: 6px; }
+.thin-scroll::-webkit-scrollbar-thumb { background: rgba(139,92,246,.5); border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .pyth-badge:hover, .pyth-badge:hover .beam, .pyth-badge:hover::before, .pyth-badge:hover .grad-text { animation: none; }
+}
